@@ -40,7 +40,7 @@ setup(
         'console_scripts': ['panther=panther.cli.main:start'],
     },
     package_data={
-        'panther': ['cli/*'],
+        'panther': ['cli/*', 'powell/*'],
     },
     install_requires=[
         'bpython>=0.24',

@@ -1,6 +1,9 @@
 import os
 import uvicorn
+import socketserver
+from concurrent.futures import ThreadPoolExecutor
 from rich import print as rprint
+from http.server import SimpleHTTPRequestHandler
 from panther.cli.utils import cli_error, run_help_message
 
 
@@ -41,10 +44,30 @@ def _handle_boolean_commands(args: dict[str, str | None]) -> dict:
     return _command
 
 
-def run(args: dict[str, str | None]) -> None:
+def serve_panel() -> None:
+    class MyServer(SimpleHTTPRequestHandler):
+        def do_GET(self):
+            if self.path == '/':
+                self.path = 'index.html'
+            super().do_GET()
+
+    socketserver.TCPServer.allow_reuse_address = True
+    server = socketserver.TCPServer(("", 8080), MyServer)
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        pass
+    except Exception as e:
+        cli_error(e)
+    finally:
+        server.server_close()
+
+
+def run_project(args: dict[str, str | None]) -> None:
     if 'h' in args or 'help' in args:
         rprint(run_help_message)
         return
+
     command = {'app_dir': os.getcwd()}
     command.update(_handle_boolean_commands(args))
     command.update(args)
@@ -53,3 +76,11 @@ def run(args: dict[str, str | None]) -> None:
         uvicorn.run('main:app', **command)
     except TypeError as e:
         cli_error(e)
+
+
+def run(args: dict[str, str | None]) -> None:
+    with ThreadPoolExecutor() as executor:
+        executor.submit(run_project, args)
+        executor.submit(serve_panel)
+
+
